@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Utilities;
 
@@ -233,6 +234,8 @@ namespace Microsoft.EntityFrameworkCore.Update
         {
             Check.NotNull(connection, nameof(connection));
 
+            EntityFrameworkEventSource.Log.ModificationBatchExecuting(ModificationCommands.Count);
+
             var storeCommand = CreateStoreCommand();
 
             try
@@ -268,6 +271,10 @@ namespace Microsoft.EntityFrameworkCore.Update
             CancellationToken cancellationToken = default)
         {
             Check.NotNull(connection, nameof(connection));
+
+#pragma warning disable EF1001
+            EntityFrameworkEventSource.Log.ModificationBatchExecuting(ModificationCommands.Count);
+#pragma warning restore EF1001
 
             var storeCommand = CreateStoreCommand();
 

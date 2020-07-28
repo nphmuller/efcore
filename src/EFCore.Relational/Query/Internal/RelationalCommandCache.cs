@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using JetBrains.Annotations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Caching.Memory;
@@ -68,6 +69,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
 
             if (_memoryCache.TryGetValue(cacheKey, out IRelationalCommand relationalCommand))
             {
+                EntityFrameworkEventSource.Log.RelationalCommandCacheHit();
                 return relationalCommand;
             }
 
@@ -80,8 +82,14 @@ namespace Microsoft.EntityFrameworkCore.Query.Internal
             {
                 lock (compilationLock)
                 {
-                    if (!_memoryCache.TryGetValue(cacheKey, out relationalCommand))
+                    if (_memoryCache.TryGetValue(cacheKey, out relationalCommand))
                     {
+                        EntityFrameworkEventSource.Log.RelationalCommandCacheHit();
+                    }
+                    else
+                    {
+                        EntityFrameworkEventSource.Log.RelationalCommandCacheMiss();
+
                         var selectExpression = _relationalParameterBasedSqlProcessor.Optimize(
                             _selectExpression, parameters, out var canCache);
                         relationalCommand = _querySqlGeneratorFactory.Create().GetCommand(selectExpression);
