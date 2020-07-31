@@ -1329,7 +1329,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
                 typeName);
 
         /// <summary>
-        ///     The child/dependent side could not be determined for the one-to-one relationship between '{dependentToPrincipalNavigationSpecification}' and '{principalToDependentNavigationSpecification}'. To identify the child/dependent side of the relationship, configure the foreign key property. If these navigations should not be part of the same relationship configure them without specifying the inverse. See http://go.microsoft.com/fwlink/?LinkId=724062 for more details.
+        ///     The dependent side could not be determined for the one-to-one relationship between '{dependentToPrincipalNavigationSpecification}' and '{principalToDependentNavigationSpecification}'. To identify the dependent side of the relationship, configure the foreign key property. If these navigations should not be part of the same relationship configure them without specifying the inverse. See http://go.microsoft.com/fwlink/?LinkId=724062 for more details.
         /// </summary>
         public static string AmbiguousOneToOneRelationship([CanBeNull] object dependentToPrincipalNavigationSpecification, [CanBeNull] object principalToDependentNavigationSpecification)
             => string.Format(
@@ -2747,6 +2747,38 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             => string.Format(
                 GetString("SharedTypeDerivedType", nameof(entityType)),
                 entityType);
+
+        /// <summary>
+        ///     '{entityType}.{navigation}' cannot be configured as required since the dependent side of the underlying foreign key '{foreignKey}' cannot be detrmined. To identify the dependent side of the relationship, configure the foreign key property. See http://go.microsoft.com/fwlink/?LinkId=724062 for more details.
+        /// </summary>
+        public static string AmbiguousEndRequiredDependentNavigation([CanBeNull] object entityType, [CanBeNull] object navigation, [CanBeNull] object foreignKey)
+            => string.Format(
+                GetString("AmbiguousEndRequiredDependentNavigation", nameof(entityType), nameof(navigation), nameof(foreignKey)),
+                entityType, navigation, foreignKey);
+
+        /// <summary>
+        ///     The foreign key {foreignKey} on the entity type '{declaringEntityType}' cannot have a required dependent end since it is not unique.
+        /// </summary>
+        public static string NonUniqueRequiredDependentForeignKey([CanBeNull] object foreignKey, [CanBeNull] object declaringEntityType)
+            => string.Format(
+                GetString("NonUniqueRequiredDependentForeignKey", nameof(foreignKey), nameof(declaringEntityType)),
+                foreignKey, declaringEntityType);
+
+        /// <summary>
+        ///     '{principalEntityType}.{principalNavigation}' cannot be configured as required since it contains a collection.
+        /// </summary>
+        public static string NonUniqueRequiredDependentNavigation([CanBeNull] object principalEntityType, [CanBeNull] object principalNavigation)
+            => string.Format(
+                GetString("NonUniqueRequiredDependentNavigation", nameof(principalEntityType), nameof(principalNavigation)),
+                principalEntityType, principalNavigation);
+
+        /// <summary>
+        ///     '{entityType}.{navigation}' cannot be configured as required since it represents a skip navigation. Instead configure the underlying foreign keys.
+        /// </summary>
+        public static string RequiredSkipNavigation([CanBeNull] object entityType, [CanBeNull] object navigation)
+            => string.Format(
+                GetString("RequiredSkipNavigation", nameof(entityType), nameof(navigation)),
+                entityType, navigation);
 
         /// <summary>
         ///     The navigation '{navigation}' on '{entityType}' must be configured using Fluent API with an explicit name for the target shared type entity type or excluded by calling 'EntityTypeBuilder.Ignore'.
