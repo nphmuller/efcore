@@ -98,28 +98,15 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
         public virtual bool CanSetIsRequired(bool? required, ConfigurationSource configurationSource)
         {
             var foreignKey = Metadata.ForeignKey;
-            if (foreignKey.IsUnique)
-            {
-                if (foreignKey.GetPrincipalEndConfigurationSource() == null)
-                {
-                    return false;
-                }
-
-                return Metadata.IsOnDependent
+            return foreignKey.IsUnique
+                ? foreignKey.GetPrincipalEndConfigurationSource() == null
+                    ? false
+                    : Metadata.IsOnDependent
+                        ? foreignKey.Builder.CanSetIsRequired(required, configurationSource)
+                        : foreignKey.Builder.CanSetIsRequiredDependent(required, configurationSource)
+                : Metadata.IsOnDependent
                     ? foreignKey.Builder.CanSetIsRequired(required, configurationSource)
-                    : foreignKey.Builder.CanSetIsRequiredDependent(required, configurationSource);
-            }
-            else
-            {
-                if (Metadata.IsOnDependent)
-                {
-                    return foreignKey.Builder.CanSetIsRequired(required, configurationSource);
-                }
-                else
-                {
-                    return false;
-                }
-            }
+                    : false;
         }
 
         /// <summary>

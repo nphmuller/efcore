@@ -935,6 +935,16 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 return null;
             }
 
+            if (required == true
+                && Metadata.GetPrincipalEndConfigurationSource() == null
+                && configurationSource == ConfigurationSource.Explicit)
+            {
+                throw new InvalidOperationException(
+                    CoreStrings.AmbiguousEndRequired(
+                        Metadata.Properties.Format(),
+                        Metadata.DeclaringEntityType.DisplayName()));
+            }
+
             Metadata.SetIsRequired(required, configurationSource);
 
             return this;
@@ -964,7 +974,17 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             }
 
             if (required == true
-                && Metadata.IsUnique)
+                && Metadata.GetPrincipalEndConfigurationSource() == null
+                && configurationSource == ConfigurationSource.Explicit)
+            {
+                throw new InvalidOperationException(
+                    CoreStrings.AmbiguousEndRequiredDependent(
+                        Metadata.Properties.Format(),
+                        Metadata.DeclaringEntityType.DisplayName()));
+            }
+
+            if (required == true
+                && !Metadata.IsUnique)
             {
                 IsUnique(null, configurationSource);
             }
@@ -1515,11 +1535,6 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
 
                 principalEntityType = principalEntityType.LeastDerivedType(Metadata.DeclaringEntityType);
                 dependentEntityType = dependentEntityType.LeastDerivedType(Metadata.PrincipalEntityType);
-
-                if (Metadata.GetIsRequiredConfigurationSource() != ConfigurationSource.Explicit)
-                {
-                    Metadata.SetIsRequiredConfigurationSource(configurationSource: null);
-                }
             }
             else
             {
@@ -2078,6 +2093,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             IReadOnlyList<Property> principalProperties = null,
             bool? isUnique = null,
             bool? isRequired = null,
+            bool? isRequiredDependent = null,
             bool? isOwnership = null,
             DeleteBehavior? deleteBehavior = null,
             bool removeCurrent = false,
@@ -2141,14 +2157,26 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 ? Metadata.IsUnique
                 : (bool?)null);
 
-            isRequired ??= ((Metadata.GetIsRequiredConfigurationSource()?.Overrides(configurationSource) ?? false)
-                ? Metadata.IsRequired
-                : (bool?)null);
-
-            isOwnership ??= ((Metadata.GetIsOwnershipConfigurationSource()?.Overrides(configurationSource) ?? false)
-                && !oldRelationshipInverted
-                    ? Metadata.IsOwnership
+            isRequired ??= !oldRelationshipInverted
+                ? ((Metadata.GetIsRequiredConfigurationSource()?.Overrides(configurationSource) ?? false)
+                    ? Metadata.IsRequired
+                    : (bool?)null)
+                : ((Metadata.GetIsRequiredDependentConfigurationSource()?.Overrides(ConfigurationSource.Explicit) ?? false)
+                    ? Metadata.IsRequiredDependent
                     : (bool?)null);
+
+            isRequiredDependent ??= !oldRelationshipInverted
+                ? ((Metadata.GetIsRequiredDependentConfigurationSource()?.Overrides(configurationSource) ?? false)
+                    ? Metadata.IsRequiredDependent
+                    : (bool?)null)
+                : ((Metadata.GetIsRequiredConfigurationSource()?.Overrides(ConfigurationSource.Explicit) ?? false)
+                    ? Metadata.IsRequired
+                    : (bool?)null);
+
+            isOwnership ??= !oldRelationshipInverted
+                && (Metadata.GetIsOwnershipConfigurationSource()?.Overrides(configurationSource) ?? false)
+                    ? Metadata.IsOwnership
+                    : (bool?)null;
 
             deleteBehavior ??= ((Metadata.GetDeleteBehaviorConfigurationSource()?.Overrides(configurationSource) ?? false)
                 ? Metadata.DeleteBehavior
@@ -2173,6 +2201,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 principalProperties,
                 isUnique,
                 isRequired,
+                isRequiredDependent,
                 isOwnership,
                 deleteBehavior,
                 removeCurrent,
@@ -2191,6 +2220,7 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
             [CanBeNull] IReadOnlyList<Property> principalProperties,
             bool? isUnique,
             bool? isRequired,
+            bool? isRequiredDependent,
             bool? isOwnership,
             DeleteBehavior? deleteBehavior,
             bool removeCurrent,
@@ -2483,14 +2513,70 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                             isRequiredConfigurationSource)
                         ?? newRelationshipBuilder;
                 }
-                else if (!oldRelationshipInverted
-                    && Metadata.GetIsRequiredConfigurationSource().HasValue
-                    && !newRelationshipBuilder.Metadata.GetIsRequiredConfigurationSource().HasValue)
+                else
                 {
-                    newRelationshipBuilder = newRelationshipBuilder.IsRequired(
-                            Metadata.IsRequired,
-                            Metadata.GetIsRequiredConfigurationSource().Value)
+                    if (!oldRelationshipInverted)
+                    {
+                        if (Metadata.GetIsRequiredConfigurationSource().HasValue
+                            && !newRelationshipBuilder.Metadata.GetIsRequiredConfigurationSource().HasValue)
+                        {
+                            newRelationshipBuilder = newRelationshipBuilder.IsRequired(
+                                    Metadata.IsRequired,
+                                    Metadata.GetIsRequiredConfigurationSource().Value)
+                                ?? newRelationshipBuilder;
+                        }
+                    }
+                    else
+                    {
+                        if (Metadata.GetIsRequiredDependentConfigurationSource().Overrides(ConfigurationSource.Explicit)
+                            && !newRelationshipBuilder.Metadata.GetIsRequiredConfigurationSource().HasValue)
+                        {
+                            newRelationshipBuilder = newRelationshipBuilder.IsRequired(
+                                    Metadata.IsRequiredDependent,
+                                    Metadata.GetIsRequiredDependentConfigurationSource().Value)
+                                ?? newRelationshipBuilder;
+                        }
+                    }
+                }
+
+                if (isRequiredDependent.HasValue)
+                {
+                    var isRequiredDependentConfigurationSource = configurationSource;
+                    if (isRequiredDependent.Value == Metadata.IsRequiredDependent)
+                    {
+                        isRequiredDependentConfigurationSource = isRequiredDependentConfigurationSource.Max(
+                            Metadata.GetIsRequiredDependentConfigurationSource());
+                    }
+
+                    newRelationshipBuilder = newRelationshipBuilder.IsRequiredDependent(
+                            isRequiredDependent.Value,
+                            isRequiredDependentConfigurationSource)
                         ?? newRelationshipBuilder;
+                }
+                else
+                {
+                    if (!oldRelationshipInverted)
+                    {
+                        if (Metadata.GetIsRequiredDependentConfigurationSource().HasValue
+                            && !newRelationshipBuilder.Metadata.GetIsRequiredDependentConfigurationSource().HasValue)
+                        {
+                            newRelationshipBuilder = newRelationshipBuilder.IsRequiredDependent(
+                                    Metadata.IsRequiredDependent,
+                                    Metadata.GetIsRequiredDependentConfigurationSource().Value)
+                                ?? newRelationshipBuilder;
+                        }
+                    }
+                    else
+                    {
+                        if (Metadata.GetIsRequiredConfigurationSource().Overrides(ConfigurationSource.Explicit)
+                            && !newRelationshipBuilder.Metadata.GetIsRequiredDependentConfigurationSource().HasValue)
+                        {
+                            newRelationshipBuilder = newRelationshipBuilder.IsRequiredDependent(
+                                    Metadata.IsRequired,
+                                    Metadata.GetIsRequiredConfigurationSource().Value)
+                                ?? newRelationshipBuilder;
+                        }
+                    }
                 }
 
                 if (deleteBehavior.HasValue)
@@ -2675,6 +2761,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Internal
                 && builder.CanSetField(oldNavigation.FieldInfo, oldFieldInfoConfigurationSource))
             {
                 builder = builder.HasField(oldNavigation.FieldInfo, oldFieldInfoConfigurationSource.Value);
+            }
+
+            var oldIsEagerLoadedConfigurationSource = ((IConventionNavigation)oldNavigation).GetIsEagerLoadedConfigurationSource();
+            if (oldIsEagerLoadedConfigurationSource.HasValue
+                && builder.CanSetAutoInclude(((INavigation)oldNavigation).IsEagerLoaded, oldIsEagerLoadedConfigurationSource.Value))
+            {
+                builder = builder.AutoInclude(((INavigation)oldNavigation).IsEagerLoaded, oldIsEagerLoadedConfigurationSource.Value);
             }
 
             return builder.Metadata.ForeignKey.Builder;

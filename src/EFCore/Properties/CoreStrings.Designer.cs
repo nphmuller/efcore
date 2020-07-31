@@ -2749,7 +2749,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
                 entityType);
 
         /// <summary>
-        ///     '{entityType}.{navigation}' cannot be configured as required since the dependent side of the underlying foreign key '{foreignKey}' cannot be detrmined. To identify the dependent side of the relationship, configure the foreign key property. See http://go.microsoft.com/fwlink/?LinkId=724062 for more details.
+        ///     '{entityType}.{navigation}' cannot be configured as required since the dependent side of the underlying foreign key {foreignKey} cannot be determined. To identify the dependent side of the relationship, configure the foreign key property. See http://go.microsoft.com/fwlink/?LinkId=724062 for more details.
         /// </summary>
         public static string AmbiguousEndRequiredDependentNavigation([CanBeNull] object entityType, [CanBeNull] object navigation, [CanBeNull] object foreignKey)
             => string.Format(
@@ -2787,6 +2787,22 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics
             => string.Format(
                 GetString("NonconfiguredNavigationToSharedType", nameof(navigation), nameof(entityType)),
                 navigation, entityType);
+
+        /// <summary>
+        ///     The foreign key {foreignKey} on entity type '{entityType}' cannot be configured as required since the dependent side cannot be determined. To identify the dependent side of the relationship, configure the foreign key property. See http://go.microsoft.com/fwlink/?LinkId=724062 for more details.
+        /// </summary>
+        public static string AmbiguousEndRequired([CanBeNull] object foreignKey, [CanBeNull] object entityType)
+            => string.Format(
+                GetString("AmbiguousEndRequired", nameof(foreignKey), nameof(entityType)),
+                foreignKey, entityType);
+
+        /// <summary>
+        ///     The foreign key {foreignKey} on entity type '{entityType}' cannot be configured as having a required dependent since the dependent side cannot be determined. To identify the dependent side of the relationship, configure the foreign key property. See http://go.microsoft.com/fwlink/?LinkId=724062 for more details.
+        /// </summary>
+        public static string AmbiguousEndRequiredDependent([CanBeNull] object foreignKey, [CanBeNull] object entityType)
+            => string.Format(
+                GetString("AmbiguousEndRequiredDependent", nameof(foreignKey), nameof(entityType)),
+                foreignKey, entityType);
 
         private static string GetString(string name, params string[] formatterNames)
         {
@@ -3995,6 +4011,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics.Internal
         /// <summary>
         ///     The RequiredAttribute on '{principalEntityType}.{principalNavigation}' was ignored because there is also a RequiredAttribute on '{dependentEntityType}.{dependentNavigation}'. RequiredAttribute should only be specified on the dependent side of the relationship.
         /// </summary>
+        [Obsolete]
         public static EventDefinition<string, string, string, string> LogRequiredAttributeOnBothNavigations([NotNull] IDiagnosticsLogger logger)
         {
             var definition = ((LoggingDefinitions)logger.Definitions).LogRequiredAttributeOnBothNavigations;
@@ -4019,6 +4036,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics.Internal
         /// <summary>
         ///     '{principalEntityType}.{principalNavigation}' may still be null at runtime despite being declared as non-nullable since only the navigation to principal '{dependentEntityType}.{dependentNavigation}' can be configured as required.
         /// </summary>
+        [Obsolete]
         public static EventDefinition<string, string, string, string> LogNonNullableReferenceOnBothNavigations([NotNull] IDiagnosticsLogger logger)
         {
             var definition = ((LoggingDefinitions)logger.Definitions).LogNonNullableReferenceOnBothNavigations;
@@ -4331,6 +4349,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics.Internal
         /// <summary>
         ///     The RequiredAttribute on '{principalEntityType}.{principalNavigation}' is invalid. RequiredAttribute should only be specified on the navigation pointing to the principal side of the relationship. To change the dependent side configure the foreign key properties.
         /// </summary>
+        [Obsolete]
         public static EventDefinition<string, string> LogRequiredAttributeOnDependent([NotNull] IDiagnosticsLogger logger)
         {
             var definition = ((LoggingDefinitions)logger.Definitions).LogRequiredAttributeOnDependent;
@@ -4355,6 +4374,7 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics.Internal
         /// <summary>
         ///     '{principalEntityType}.{principalNavigation}' may still be null at runtime despite being declared as non-nullable since only the navigation to principal can be configured as required.
         /// </summary>
+        [Obsolete]
         public static EventDefinition<string, string> LogNonNullableReferenceOnDependent([NotNull] IDiagnosticsLogger logger)
         {
             var definition = ((LoggingDefinitions)logger.Definitions).LogNonNullableReferenceOnDependent;
@@ -4443,6 +4463,30 @@ namespace Microsoft.EntityFrameworkCore.Diagnostics.Internal
                             level,
                             CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning,
                             _resourceManager.GetString("LogPossibleIncorrectRequiredNavigationWithQueryFilterInteraction"))));
+            }
+
+            return (EventDefinition<string, string>)definition;
+        }
+
+        /// <summary>
+        ///     The RequiredAttribute on '{principalEntityType}.{principalNavigation}' was ignored because it is a skip navigation. Instead configure the underlying foreign keys.
+        /// </summary>
+        public static EventDefinition<string, string> LogRequiredAttributeOnSkipNavigation([NotNull] IDiagnosticsLogger logger)
+        {
+            var definition = ((LoggingDefinitions)logger.Definitions).LogRequiredAttributeOnSkipNavigation;
+            if (definition == null)
+            {
+                definition = LazyInitializer.EnsureInitialized<EventDefinitionBase>(
+                    ref ((LoggingDefinitions)logger.Definitions).LogRequiredAttributeOnSkipNavigation,
+                    () => new EventDefinition<string, string>(
+                        logger.Options,
+                        CoreEventId.RequiredAttributeOnSkipNavigation,
+                        LogLevel.Debug,
+                        "CoreEventId.RequiredAttributeOnSkipNavigation",
+                        level => LoggerMessage.Define<string, string>(
+                            level,
+                            CoreEventId.RequiredAttributeOnSkipNavigation,
+                            _resourceManager.GetString("LogRequiredAttributeOnSkipNavigation"))));
             }
 
             return (EventDefinition<string, string>)definition;
